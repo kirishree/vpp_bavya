@@ -599,234 +599,90 @@ def vxlan_delete():
     
 #----------------------------------------------------------------------------------------------------------------------------------
 # function to insert outbound rule in ACL
-@app.route('/outbound_rule', methods = ['POST'])  
+@app.route('/outbound_aclrule', methods = ['POST'])  
 def outbound_rule():
         data = request.json
         response = {"message":"successfull"}
-        acl_add = subprocess.check_output(["sudo", "vppctl", "set", "acl-plugin", "acl", data["action"], "src", data["source"], "dst", data["destination"], ",", "permit", "src", "any", "dst", "any"]).decode("utf-8")
+        acl_add = subprocess.check_output(["sudo", "vppctl", "set", "acl-plugin", "acl", data["action"], "src", data["source"], "dst", data["destination"], "sport", data["src_port"], "dport", data["dst_port"], "proto", data["protocol"], ",", "permit", "src", "any", "dst", "any"]).decode("utf-8")
         acl_ind = acl_add.split(":")[1]
         #os.system(f"sudo vppctl set acl-plugin acl {data['action']} src {data['source']} dst {data['destination']}, proto {data['protocol']} sport {data['sport_range']}, dport {data['dport_range']}, permit src any dst any")
         acl_int = vpp.api.acl_interface_add_del(is_add=1, is_input=0, sw_if_index=data["int_index"], acl_index=int(acl_ind))
-        print(acl_add)
-        print(acl_int)
-        print(vpp.api.acl_dump())
         return jsonify(response), 200
         
 # function to insert outbound rule in ACL
-@app.route('/inbound_rule', methods = ['POST'])  
+@app.route('/inbound_aclrule', methods = ['POST'])  
 def inbound_rule():
         data = request.json
         response = {"message":"successfull"}
-        acl_add = subprocess.check_output(["sudo", "vppctl", "set", "acl-plugin", "acl", data["action"], "src", data["source"], "dst", data["destination"], ",", "permit", "src", "any", "dst", "any"]).decode("utf-8")
+        acl_add = subprocess.check_output(["sudo", "vppctl", "set", "acl-plugin", "acl", data["action"], "src", data["source"], "dst", data["destination"], "sport", data["src_port"], "dport", data["dst_port"], "proto", data["protocol"], ",", "permit", "src", "any", "dst", "any"]).decode("utf-8")
         acl_ind = acl_add.split(":")[1]
         #os.system(f"sudo vppctl set acl-plugin acl {data['action']} src {data['source']} dst {data['destination']}, proto {data['protocol']} sport {data['sport_range']}, dport {data['dport_range']}, permit src any dst any")
         acl_int = vpp.api.acl_interface_add_del(is_add=1, is_input=1, sw_if_index=data["int_index"], acl_index=int(acl_ind))
-        print(acl_add)
-        print(acl_int)
-        print(vpp.api.acl_dump())
         return jsonify(response), 200
 
-# function to insert outbound rule
-@app.route('/outbound_ufw_rule', methods = ['POST'])  
-def outbound_ufw_rule():
-        data = request.json
-        response = {"message":"successfull"}
-        ufw.add(f'{data["action"]} out on {data["interface"]} from {data["source"]} to {data["destination"]} port {data["port"]} proto {data["protocol"]}')
-        return jsonify(response), 200  
 
 #----------------------------------------------------------------------------------------------------------------------------------
-# function to move outbound rule one step up
-@app.route('/outbound_rule_up', methods = ['POST'])  
-def outbound_rule_up():
-        data = request.json
-        if isinstance(data, str):
-            data = json.loads()
-        ufw.delete(data["rule_number"])
-        response = {"message":"successfull"}
-        ufw.add(f'{data["action"]} out on {data["interface"]} from {data["source"]} to {data["destination"]} port {data["port"]} proto {data["protocol"]}', number=data["rule_number"]-1)
-        return jsonify(response), 200  
-
-#----------------------------------------------------------------------------------------------------------------------------------
-# function to move outbound rule one step down
-@app.route('/outbound_rule_down', methods = ['POST'])  
-def outbound_rule_down():
-        data = request.json
-        if isinstance(data,str):
-            data  = json.loads()
-        ufw.delete(data["rule_number"])
-        response = {"message":"successfull"}
-        ufw.add(f'{data["action"]} out on {data["interface"]} from {data["source"]} to {data["destination"]} port {data["port"]} proto {data["protocol"]}', number=data["rule_number"]+1)
-        return jsonify(response), 200  
-
-#----------------------------------------------------------------------------------------------------------------------------------
-# function to add inbound rule    
-@app.route('/inbound_ufw_rule', methods = ['POST'])  
-def inbound_ufw_rule():
-        data = request.json
-        response = {"message":"successfull"}
-        ufw.add(f'{data["action"]} in on {data["interface"]} from {data["source"]} to {data["destination"]} port {data["port"]} proto {data["protocol"]}')
-        return jsonify(response), 200  
-
-#----------------------------------------------------------------------------------------------------------------------------------
-# function to move inbound rule to one step up for higher precedence
-@app.route('/inbound_rule_up', methods = ['POST'])  
-def inbound_rule_up():
-        data = request.json
-        if isinstance(data,str):
-          data  = json.loads(data)
-        ufw.delete(data["rule_number"])
-        response = {"message":"successfull"}
-        ufw.add(f'{data["action"]} in on {data["interface"]} from {data["source"]} to {data["destination"]} port {data["port"]} proto {data["protocol"]}', number=data["rule_number"]-1)
-        return jsonify(response), 200  
-
-#----------------------------------------------------------------------------------------------------------------------------------
-# function to move inbound rule one step down for lower precedence
-@app.route('/inbound_rule_down', methods = ['POST'])  
-def inbound_rule_down():
-        data = request.json
-        if isinstance(data,str):
-           data = json.loads(data)
-        ufw.delete(data["rule_number"])
-        response = {"message":"successfull"}
-        ufw.add(f'{data["action"]} in on {data["interface"]} from {data["source"]} to {data["destination"]} port {data["port"]} proto {data["protocol"]}', number=data["rule_number"]+1)
-        return jsonify(response), 200  
-
-#----------------------------------------------------------------------------------------------------------------------------------
-# function to implement natting in firewall
-@app.route('/natting', methods = ['POST'])  
-def natting():
-    data = request.json
-    response = {"message":"successfull"}
-    lan_ip_subnet = data["lan_subnet"]
-    wan_interface = data["interface"]
-    #add rules in ufw
-    with open("/etc/default/ufw", "r+") as f:
-      content = f.read()
-      new_content = content.replace('DEFAULT_FORWARD_POLICY="DROP"','DEFAULT_FORWARD_POLICY="ACCEPT"')
-      f.seek(0)
-      f.write(new_content)
-      f.truncate()
-    with open("/etc/ufw/sysctl.conf", "a") as f:
-      f.write(f"\nnet/ipv4/ip_forward=1\nnet/ipv6/conf/default/forwarding=1\n")
-    with open("/etc/ufw/before.rules", "r+") as f:
-      data2 = f.read()
-      f.seek(0)
-      f.write(f"\n*nat\n:POSTROUTING ACCEPT [0:0]\n-A POSTROUTING -s {lan_ip_subnet} -o {wan_interface} -j MASQUERADE\nCOMMIT\n{data2}\n")
-    os.system(f"sudo ip netns exec dataplane ufw disable && sudo ufw enable")
-    
-    #add rules in iptables
-    with open("/etc/sysctl.conf", "a") as f:
-      f.write(f"\nnet.ipv4.ip_forward=1\nnet.ipv6.conf.default.forwarding=1\n")
-    os.system(f"sudo sysctl -p")
-    os.system(f"sudo ip netns exec dataplane iptables -t nat -A POSTROUTING -s {lan_ip_subnet} -o {wan_interface} -j MASQUERADE")
-    
-    #Also, each chain in the filter table (the default table, and where most or all packet filtering occurs) has a default policy of ACCEPT,
-    #but if you are creating a firewall in addition to a gateway device, you may have set the policies to DROP or REJECT,
-    #in which case your masqueraded traffic needs to be allowed through the FORWARD chain for the above rule to work:
-    
-    
-    os.system(f"sudo ip netns exec dataplane iptables -A FORWARD -s {lan_ip_subnet} -o {wan_interface} -j ACCEPT")
-    os.system(f"sudo ip netns exec dataplane iptables -A FORWARD -d {lan_ip_subnet} -m state --state ESTABLISHED,RELATED -i {wan_interface} -j ACCEPT")
-    #masquerading to be enabled on reboot
-    with open("/etc/rc.local", "a") as f:
-      f.write(f"\niptables -t nat -A POSTROUTING -s {lan_ip_subnet} -o {wan_interface} -j MASQUERADE\niptables -A FORWARD -s {lan_ip_subnet} -o {wan_interface} -j ACCEPT\niptables -A FORWARD -d {lan_ip_subnet} -m state --state ESTABLISHED,RELATED -i {wan_interface} -j ACCEPT")
-    
-    os.system(f"sudo ip netns exec dataplane ufw logging on")
-    return jsonify(response), 200  
- 
-#----------------------------------------------------------------------------------------------------------------------------------
-# function for port forwarding
-@app.route('/port_forwarding', methods = ['POST'])  
-def port_forwarding():
-    data = request.json
-    response = {"message":"successfull"}
-    protocol = data["protocol"]
-    dstport = data["dstport"]
-    srcport = data["srcport"]
-    source = data["source"]
-    with open("/etc/default/ufw", "r+") as f:
-      content = f.read()
-      new_content = content.replace('DEFAULT_FORWARD_POLICY="DROP"','DEFAULT_FORWARD_POLICY="ACCEPT"')
-      f.seek(0)
-      f.write(new_content)
-      f.truncate()
-    with open("/etc/ufw/sysctl.conf", "a") as f:
-      f.write(f"\nnet/ipv4/ip_forward=1\nnet/ipv6/conf/default/forwarding=1")
-    with open("/etc/ufw/before.rules", "r+") as f:
-      data2 = f.read()
-      f.seek(0)
-
-      f.write(f"\n*nat\n:PREROUTING ACCEPT [0:0]\n-A PREROUTING -p {protocol} --dport {dstport} -j REDIRECT --to-port {srcport}\nCOMMIT\n{data2}\n")
-    os.system(f"sudo ip netns exec dataplane iptables -t nat -A PREROUTING -p {protocol} --dport {dstport} -j REDIRECT --to-port {srcport}")
-    os.system(f"sudo ip netns exec dataplane ufw disable && sudo ip netns exec dataplane ufw enable")
-    return jsonify(response), 200        
-
-#----------------------------------------------------------------------------------------------------------------------------------
-# function to add application in ufw  
-@app.route('/ufw_app_rule_add', methods = ['POST'])
-def ufw_app_rule_add():
-  data = request.json
-  ufw.add(f'{data["action"]} {data["app"]}')
-  response = {'message':'successfull'}
-  return jsonify(response), 200
-
-#----------------------------------------------------------------------------------------------------------------------------------
-# function to show status of outbound_rules in ufw 
-@app.route('/outbound_rule_status')  
-def outbound_rule_status():
-  out = ufw.get_rules()
+@app.route('/acl_status')  
+def acl_status():
+  i = 0
   data = []
-  for i in out:
-   if "out" in  out[i]:
-     out1 = out[i].split()
-     collect={"rule_number":i, "action":out1[0], "interface":out1[3], "source":out1[5], "destination":out1[7], "port":out1[9], "protocol":out1[11]}
-     data.append(collect)
-  return data
+  for i in range(100):
+    stat = vpp.api.acl_dump(acl_index=i)
+    if stat != []:
+     rule = stat[0].r
+     protocol = (rule[0].proto).value
+     if protocol == 0:
+       proto = "HOPOPT"
+     elif protocol == 1:
+       proto = "ICMP"
+     elif protocol == 2:
+       proto = "IGMP"
+     elif protocol == 6:
+      proto = "TCP"
+     elif protocol == 17:
+      proto = "UDP"
+     elif protocol == 47:
+      proto = "GRE"
+     elif protocol == 50:
+      proto = "ESP"
+     elif protocol == 51:
+      proto = "AH"
+     elif protocol == 58:
+      proto = "ICMP6"
+     elif protocol == 88:
+      proto = "EIGRP"
+     elif protocol == 89:
+       proto = "OSPF"
+     elif protocol == 132:
+       proto = "SCTP"
+     elif protocol == 255:
+       proto = "Reserved"
 
+     act = (rule[0].is_permit).value
+     if act == 0:
+       action = "deny"
+     elif act == 1:
+       action = "permit"
+     elif act ==2:
+       action = "permit+reflect"
+     if rule[0].srcport_or_icmptype_first == rule[0].srcport_or_icmptype_last:
+       src_port = rule[0].srcport_or_icmptype_first
+     else:
+       src_port = str(rule[0].srcport_or_icmptype_first)+"-"+ str(rule[0].srcport_or_icmptype_last)
+     if rule[0].dstport_or_icmpcode_first == rule[0].dstport_or_icmpcode_last:
+       dst_port = rule[0].dstport_or_icmpcode_first
+     else:
+        dst_port = str(rule[0].dstport_or_icmpcode_first) + "-" + str(rule[0].dstport_or_icmpcode_last)
+        colect = {"acl_index":i, "action":action, "src_port":src_port, "dst_port":dst_port, "source":rule[0].src_prefix, "destination":rule[0].dst_prefix, "protocol": proto}
+  
+    
+     data.append(colect)
+     i += 1 
+    else:
+      return data
 #----------------------------------------------------------------------------------------------------------------------------------
-# function to show status of inbound_rules in ufw 
-@app.route('/inbound_rule_status')  
-def inbound_rule_status():
-  out = ufw.get_rules()
-  data = []
-  for i in out:
-   if "in" in  out[i]:
-     out1 = out[i].split()
-     collect={"rule_number":i, "action":out1[0], "interface":out1[3], "source":out1[5], "destination":out1[7], "port":out1[9], "protocol":out1[11]}
-     data.append(collect)
-  return data
- 
-#----------------------------------------------------------------------------------------------------------------------------------
-# function to show status of app in ufw  
-@app.route('/ufw_app_rule_status')  
-def app_status():
-  out = ufw.get_rules()
-  data = []
-  for i in out:
-   if "in" not in  out[i]:
-     if "out" not in out[i]:
-       out1 = out[i].split()
-       collect={"rule_number":i, "action":out1[0], "application":out1[1]}
-       data.append(collect)
-  return data
 
-#----------------------------------------------------------------------------------------------------------------------------------
-# function to delete rule in ufw 
-@app.route('/ufw_delete', methods = ['DELETE'])
-def ufw_delete():
-  rule_number = request.args.get('rule_number')
-  response = {'message':'successfull'}
-  ufw.delete(rule_number)
-  return jsonify(response), 200
 
-#----------------------------------------------------------------------------------------------------------------------------------
-# function to delete app rule in ufw 
-@app.route('/ufw_app_rule_delete', methods = ['DELETE'])
-def ufw_app_rule_delete():
-  rule_number = request.args.get('rule_number')
-  ufw.delete(rule_number)
-  response = {'message':'successfull'}
-  return jsonify(response), 200
 
 #----------------------------------------------------------------------------------------------------------------------------------
 # function to implement qos via policy based classification
