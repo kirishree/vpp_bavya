@@ -55,7 +55,7 @@ def get_ubuntu_routing_table():
   protocol = int(route['proto'])
   for attr in route['attrs']:
     if attr[0] == 'RTA_OIF':
-	  intfc_name = ns.get_links(attr[1])[0].get_attr('IFLA_NAME')
+	  intfc_name = ns.get_links(attr[1])[0].get_attr('IFLA_IFNAME')
 	if attr[0] == 'RTA_GATEWAY':
 	  gateway = attr[1]
 	if attr[0] == 'RTA_PRIORITY':
