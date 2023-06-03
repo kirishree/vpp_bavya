@@ -1,7 +1,7 @@
 import psutil
 import pymongo
 from pymongo.server_api import ServerApi
-
+import subprocess
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from pyroute2 import NetNS
@@ -127,9 +127,9 @@ def store_interface_details():
   for route in default_route:
         for attr in route['attrs']:
           if attr[0] == 'RTA_OIF':
-	          intfc_name = ipr.get_links(attr[1])[0].get_attr('IFLA_IFNAME')
+	    intfc_name = ipr.get_links(attr[1])[0].get_attr('IFLA_IFNAME')
 	  if attr[0] == 'RTA_GATEWAY':
-	          gateway = attr[1]
+	    gateway = attr[1]
         for i in coll_interface_info.find():
           if i["interface_name"] == intfc_name:
                query = {"interface_name": intfc_name}
