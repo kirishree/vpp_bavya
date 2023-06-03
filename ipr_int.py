@@ -6,8 +6,9 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from pyroute2 import NetNS
 import socket
+from pyroute2 import IPRoute
 ns = NetNS('dataplane')
-
+ipr = IPRoute()
 app = Flask(__name__)
 CORS(app)
 
@@ -82,20 +83,21 @@ def store_ubuntu_routing_table():
  return routing_table
 
 def store_interface_details():
-  coll_interface_info_.delete_many({})
+  coll_interface_info.delete_many({})
   interface = psutil.net_if_addrs()
   intfc_ubuntu = []
   for intfc_name in interface:
+    colect = {"interface_name":intfc_name}
     addresses = interface[intfc_name]
     for address in addresses:
       
        if address.family == 2:
-         colect = {
-            "interface_name":intfc_name,
+         colect.update({
+            
             "IPv4address":str(address.address),
             "netmask":str(address.netmask),
             "broadcast":str(address.broadcast)
-         }
+         })
        if address.family == 17:
          colect.update({
             "mac_address":str(address.address)
@@ -110,7 +112,7 @@ def store_interface_details():
       pci_info = "0000:"+line.split()[0]
       lsh_out = subprocess.check_output(["lshw", "-c", "network", "-businfo"])
       lsh_out = lsh_out.decode().split("\n")
-      lsh_out = lsh_out[2:]
+      lsh_out = lsh_out[2:-1]
       for line in lsh_out:
         li = line.split()
         lii = li[0].split("@")
@@ -119,19 +121,19 @@ def store_interface_details():
            for i in coll_interface_info.find():
              if i["interface_name"] == li[1]:
                query = {"interface_name": li[1]}
-               update_data = {$set: {"pci_address":pci_info}}
+               update_data = {"$set": {"pci_address":pci_info}}
                coll_interface_info.update_many(query, update_data)
-     default_route = ipr.get_default_routes(family = socket.AF_INET)
-     for route in default_routes:
+  default_route = ipr.get_default_routes(family = socket.AF_INET)
+  for route in default_route:
         for attr in route['attrs']:
           if attr[0] == 'RTA_OIF':
-	          intfc_name = ns.get_links(attr[1])[0].get_attr('IFLA_IFNAME')
-	        if attr[0] == 'RTA_GATEWAY':
+	          intfc_name = ipr.get_links(attr[1])[0].get_attr('IFLA_IFNAME')
+	  if attr[0] == 'RTA_GATEWAY':
 	          gateway = attr[1]
         for i in coll_interface_info.find():
           if i["interface_name"] == intfc_name:
                query = {"interface_name": intfc_name}
-               update_data = {$set: {"gateway":gateway}}
+               update_data = {"$set": {"gateway":gateway}}
                coll_interface_info.update_many(query, update_data)
          
   
